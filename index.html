@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MWI Maintenance - نظام إدارة الصيانة</title>
+    <style>
+        :root { --primary: #0284c7; --secondary: #0f172a; --bg: #f8fafc; --success: #16a34a; --danger: #dc2626; --warning: #ca8a04; }
+        body { font-family: Tahoma, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1, h2, h3 { color: var(--secondary); text-align: center; }
+        .card { background: #fff; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #475569; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        button { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: #0369a1; }
+        .btn-danger { background-color: var(--danger); }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover { background-color: #15803d; }
+        table { width: 100%; margin-top: 15px; border-collapse: collapse; font-size: 14px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
+        th { background-color: #f1f5f9; color: #1e293b; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; }
+        .bg-yellow { background-color: var(--warning); }
+        .bg-blue { background-color: var(--primary); }
+        .bg-green { background-color: var(--success); }
+        .bg-red { background-color: var(--danger); }
+        .hidden { display: none; }
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .nav-tabs button { background: #e2e8f0; color: #334155; }
+        .nav-tabs button.active { background: var(--primary); color: white; }
+        .login-box { max-width: 400px; margin: 50px auto; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة تسجيل الدخول -->
+    <div id="loginScreen" class="login-box">
+        <h2>MWI Maintenance</h2>
+        <p style="text-align: center; color: #64748b;">نظام بلاغات الصيانة وقطع الغيار</p>
+        <div class="form-group">
+            <label>اختر حسابك / دورك:</label>
+            <select id="loginRole" onchange="toggleLoginInputs()">
+                <option value="manager">مدير الصيانة (التحكم الكامل)</option>
+                <option value="technician">فني قسم</option>
+            </select>
+        </div>
+        <div class="form-group" id="techSelectGroup">
+            <label>اختر القسم التابع له:</label>
+            <select id="loginSection">
+                <option value="محطة الغلايات">محطة الغلايات</option>
+                <option value="خط الغسيل">خط الغسيل</option>
+                <option value="الكارد">الكارد</option>
+                <option value="التدوير">التدوير</option>
+                <option value="البرسات">البرسات</option>
+                <option value="المكابس">المكابس</option>
+                <option value="التمشيط">التمشيط</option>
+                <option value="الفلاتر">الفلاتر</option>
+                <option value="الكمبروسورات">الكمبروسورات</option>
+                <option value="المعمل">المعمل</option>
+            </select>
+        </div>
+        <button onclick="handleLogin()">تسجيل الدخول</button>
+    </div>
+
+    <!-- التطبيق الرئيسي -->
+    <div id="appScreen" class="container hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+            <h2 id="welcomeTitle" style="margin:0;">لوحة التحكم</h2>
+            <button onclick="logout()" style="width: auto; background: #64748b; padding: 6px 12px; font-size: 14px;">تسجيل الخروج</button>
+        </div>
+
+        <!-- تبويبات المدير -->
+        <div id="managerTabs" class="nav-tabs hidden">
+            <button class="active" onclick="switchTab('dashboard')">متابعة البلاغات والطلبات</button>
+            <button onclick="switchTab('users')">إدارة الأعضاء (الفنيين)</button>
+        </div>
+
+        <!-- قسم الفنيين: إرسال بلاغ أو طلب -->
+        <div id="techPanel" class="hidden">
+            <div class="nav-tabs">
+                <button class="active" onclick="switchTechTab('reqBreakdown')">تسجيل عطل / بلاغ صيانة</button>
+                <button onclick="switchTechTab('reqSpare')">طلب قطعة غيار</button>
+            </div>
+
+            <!-- نموذج بلاغ عطل -->
+            <div id="formBreakdown" class="card">
+                <h3>تسجيل بلاغ عطل جديد</h3>
+                <div class="form-group">
+                    <label>نوع البلاغ:</label>
+                    <select id="bType">
+                        <option value="صيانة طارئة">صيانة طارئة</option>
+                        <option value="عطل مفاجئ">عطل مفاجئ</option>
+                        <option value="صيانة دورية">صيانة دورية</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>اسم / رقم المعدة أو الماكينة:</label>
+                    <input type="text" id="bMachine" placeholder="مثال: ماكينة تمشيط رقم 2">
+                </div>
+                <div class="form-group">
+                    <label>وصف العطل:</label>
+                    <textarea id="bDesc" rows="3" placeholder="اكتب تفاصيل العطل بوضوح..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>الأولوية:</label>
+                    <select id="bPriority">
+                        <option value="عادي">عادي</option>
+                        <option value="عاجل">عاجل</option>
+                        <option value="حرج جداً">حرج جداً</option>
+                    </select>
+                </div>
+                <button onclick="submitBreakdown()">إرسال البلاغ لمدير الصيانة</button>
+            </div>
+
+            <!-- نموذج طلب قطعة غيار -->
+            <div id="formSpare" class="card hidden">
+                <h3>طلب قطعة غيار جديدة</h3>
+                <div class="form-group">
+                    <label>اسم قطعة الغيار:</label>
+                    <input type="text" id="sName" placeholder="مثال: سير نقل حركة / صمام هوائي">
+                </div>
+                <div class="form-group">
+                    <label>الكود / رقم القطعة (إن وجد):</label>
+                    <input type="text" id="sCode" placeholder="رقم الكود">
+                </div>
+                <div class="form-group">
+                    <label>الكمية المطلوبة:</label>
+                    <input type="number" id="sQty" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label>السبب والماكينة المراد التركيب عليها:</label>
+                    <textarea id="sReason" rows="2" placeholder="توضيح سبب الحاجة للقطعة..."></textarea>
+                </div>
+                <button onclick="submitSpare()">إرسال طلب القطعة للاعتماد</button>
+            </div>
+
+            <!-- سجل بلاغات وطلبات القسم الخاص بالفني -->
+            <div class="card">
+                <h3>سجل بلاغات وطلبات قسمك</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>النوع</th>
+                            <th>التفاصيل</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="techHistoryTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- لوحة تحكم المدير -->
+        <div id="managerPanel" class="hidden">
+            <div id="tabDashboard">
+                <div class="card">
+                    <h3>جميع بلاغات الأعطال الواردة</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                x<th>القسم</th>
+                                <th>المعدة</th>
+                                <th>الوصف</th>
+                                <th>الأولوية</th>
+                                <th>الحالة / الإجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody id="managerBreakdownsTable"></tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3>جميع طلبات قطع الغيار</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>القسم</th>
+                                <th>القطعة والكود</th>
+                                <th>الكمية والسبب</th>
+                                <th>الحالة / الإجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody id="managerSparesTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tabUsers" class="hidden">
+                <div class="card">
+                    <h3>إضافة فني جديد للنظام</h3>
+                    <div class="form-group">
+                        <label>اسم الفني:</label>
+                        <input type="text" id="newTechName" placeholder="اسم الفني الثلاثي">
+                    </div>
+                    <div class="form-group">
+                        <label>القسم المسؤول عنه:</label>
+                        <select id="newTechSection">
+                            <option value="محطة الغلايات">محطة الغلايات</option>
+                            <option value="خط الغسيل">خط الغسيل</option>
+                            <option value="الكارد">الكارد</option>
+                            <option value="التدوير">التدوير</option>
+                            <option value="البرسات">البرسات</option>
+                            <option value="المكابس">المكابس</option>
+                            <option value="التمشيط">التمشيط</option>
+                            <option value="الفلاتر">الفلاتر</option>
+                            <option value="الكمبروسورات">الكمبروسورات</option>
+                            <option value="المعمل">المعمل</option>
+                        </select>
+                    </div>
+                    <button class="btn-success" onclick="addTechnician()">حفظ وإضافة الفني</button>
+                </div>
+
+                <div class="card">
+                    <h3>قائمة الفنيين المسجلين</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>اسم الفني</th>
+                                <th>القسم</th>
+                                <th>الإجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody id="techniciansListTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = { role: '', section: '' };
+        
+        // بيانات تجريبية مخزنة
+        let data = {
+            breakdowns: JSON.parse(localStorage.getItem('mwi_breakdowns')) || [],
+            spares: JSON.parse(localStorage.getItem('mwi_spares')) || [],
+            technicians: JSON.parse(localStorage.getItem('mwi_techs')) || [
+                { name: 'أحمد محمد', section: 'الكارد' },
+                { name: 'محمود حسن', section: 'خط الغسيل' }
+            ]
+        };
+
+        function saveData() {
+            localStorage.setItem('mwi_breakdowns', JSON.stringify(data.breakdowns));
+            localStorage.setItem('mwi_spares', JSON.stringify(data.spares));
+            localStorage.setItem('mwi_techs', JSON.stringify(data.technicians));
+        }
+
+        function toggleLoginInputs() {
+            const role = document.getElementById('loginRole').value;
+            document.getElementById('techSelectGroup').style.display = role === 'technician' ? 'block' : 'none';
+        }
+
+        function handleLogin() {
+            const role = document.getElementById('loginRole').value;
+            currentUser.role = role;
+            if(role === 'technician') {
+                currentUser.section = document.getElementById('loginSection').value;
+                document.getElementById('welcomeTitle').innerText = `لوحة تحكم الفني - قسم: ${currentUser.section}`;
+                document.getElementById('techPanel').classList.remove('hidden');
+                document.getElementById('managerPanel').classList.add('hidden');
+                document.getElementById('managerTabs').classList.add('hidden');
+            } else {
+                currentUser.section = 'All';
+                document.getElementById('welcomeTitle').innerText = 'لوحة تحكم مدير الصيانة (التحكم الشامل)';
+                document.getElementById('managerPanel').classList.remove('hidden');
+                document.getElementById('managerTabs').classList.remove('hidden');
+                document.getElementById('techPanel').classList.add('hidden');
+                loadManagerData();
+            }
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appScreen').classList.remove('hidden');
+            loadDataForCurrentView();
+        }
+
+        function logout() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('appScreen').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('#managerTabs button').forEach(b => b.classList.remove('active'));
+            if(tab === 'dashboard') {
+                document.getElementById('tabDashboard').classList.remove('hidden');
+                document.getElementById('tabUsers').classList.add('hidden');
+                event.target.classList.add('active');
+            } else {
+                document.getElementById('tabDashboard').classList.add('hidden');
+                document.getElementById('tabUsers').classList.remove('hidden');
+                event.target.classList.add('active');
+                loadTechniciansList();
+            }
+        }
+
+        function switchTechTab(formName) {
+            document.querySelectorAll('#techPanel .nav-tabs button').forEach(b => b.classList.remove('active'));
+            if(formName === 'reqBreakdown') {
+                document.getElementById('formBreakdown').classList.remove('hidden');
+                document.getElementById('formSpare').classList.add('hidden');
+                event.target.classList.add('active');
+            } else {
+                document.getElementById('formBreakdown').classList.add('hidden');
+                document.getElementById('formSpare').classList.remove('hidden');
+                event.target.classList.add('active');
+            }
+        }
+
+        function submitBreakdown() {
+            const item = {
+                id: Date.now(),
+                section: currentUser.section,
+                type: document.getElementById('bType').value,
+                machine: document.getElementById('bMachine').value,
+                desc: document.getElementById('bDesc').value,
+                priority: document.getElementById('bPriority').value,
+                status: 'جديدة 🟡'
+            };
+            if(!item.machine || !item.desc) { alert('الرجاء إدخال اسم المعدة ووصف العطل'); return; }
+            data.breakdowns.push(item);
+            saveData();
+            alert('تم إرسال البلاغ بنجاح لمدير الصيانة');
+            document.getElementById('bMachine').value = '';
+            document.getElementById('bDesc').value = '';
+            loadDataForCurrentView();
+        }
+
+        function submitSpare() {
+            const item = {
+                id: Date.now(),
+                section: currentUser.section,
+                name: document.getElementById('sName').value,
+                code: document.getElementById('sCode').value,
+                qty: document.getElementById('sQty').value,
+                reason: document.getElementById('sReason').value,
+                status: 'تحت المعالجة 🔵'
+            };
+            if(!item.name) { alert('الرجاء إدخال اسم قطعة الغيار'); return; }
+            data.spares.push(item);
+            saveData();
+            alert('تم إرسال طلب قطعة الغيار بنجاح');
+            document.getElementById('sName').value = '';
+            document.getElementById('sCode').value = '';
+            document.getElementById('sReason').value = '';
+            loadDataForCurrentView();
+        }
+
+        function loadDataForCurrentView() {
+            if(currentUser.role === 'technician') {
+                const tbody = document.getElementById('techHistoryTable');
+                tbody.innerHTML = '';
+                const myBreakdowns = data.breakdowns.filter(x => x.section === currentUser.section);
+                const mySpares = data.spares.filter(x => x.section === currentUser.section);
+                
+                myBreakdowns.forEach(b => {
+                    tbody.innerHTML += `<tr><td>عطل (${b.type})</td><td><b>${b.machine}</b>: ${b.desc}</td><td><span class="badge bg-yellow">${b.status}</span></td></tr>`;
+                });
+                mySpares.forEach(s => {
+                    tbody.innerHTML += `<tr><td>قطعة غيار</td><td><b>${s.name}</b> (كمية: ${s.qty})</td><td><span class="badge bg-blue">${s.status}</span></td></tr>`;
+                });
+            } else {
+                loadManagerData();
+            }
+        }
+
+        function loadManagerData() {
+            const bTable = document.getElementById('managerBreakdownsTable');
+            bTable.innerHTML = '';
+            data.breakdowns.forEach(b => {
+                bTable.innerHTML += `
+                    <tr>
+                        <td><b>${b.section}</b></td>
+                        <td>${b.machine}</td>
+                        <td>${b.desc} (${b.priority})</td>
+                        <td><span class="badge bg-yellow">${b.status}</span><br>
+                            <button class="btn-success" style="padding:4px; margin-top:5px; font-size:12px;" onclick="updateBreakdownStatus(${b.id}, 'تم الإصلاح 🟢')">تم الإصلاح</button>
+                        </td>
+                    </tr>`;
+            });
+
+            const sTable = document.getElementById('managerSparesTable');
+            sTable.innerHTML = '';
+            data.spares.forEach(s => {
+                sTable.innerHTML += `
+                    <tr>
+                        <td><b>${s.section}</b></td>
+                        <td>${s.name} (كود: ${s.code || 'بدون'})</td>
+                        <td>الكمية: ${s.qty}<br><small>${s.reason}</small></td>
+                        <td><span class="badge bg-blue">${s.status}</span><br>
+                            <button class="btn-success" style="padding:4px; margin-top:5px; font-size:12px;" onclick="updateSpareStatus(${s.id}, 'تم الاعتماد وتسليم القطعة 🟢')">اعتماد وتسليم</button>
+                            <button class="btn-danger" style="padding:4px; margin-top:2px; font-size:12px;" onclick="updateSpareStatus(${s.id}, 'مرفوضة 🔴')">رفض</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function updateBreakdownStatus(id, status) {
+            let item = data.breakdowns.find(x => x.id === id);
+            if(item) { item.status = status; saveData(); loadManagerData(); }
+        }
+
+        function updateSpareStatus(id, status) {
+            let item = data.spares.find(x => x.id === id);
+            if(item) { item.status = status; saveData(); loadManagerData(); }
+        }
+
+        function addTechnician() {
+            const name = document.getElementById('newTechName').value;
+            const section = document.getElementById('newTechSection').value;
+            if(!name) { alert('أدخل اسم الفني'); return; }
+            data.technicians.push({ name, section });
+            saveData();
+            alert('تمت إضافة الفني بنجاح');
+            document.getElementById('newTechName').value = '';
+            loadTechniciansList();
+        }
+
+        function loadTechniciansList() {
+            const tTable = document.getElementById('techniciansListTable');
+            tTable.innerHTML = '';
+            data.technicians.forEach((t, index) => {
+                tTable.innerHTML += `<tr><td>${t.name}</td><td>${t.section}</td><td><button class="btn-danger" style="padding:4px; font-size:12px;" onclick="deleteTech(${index})">حذف</button></td></tr>`;
+            });
+        }
+
+        function deleteTech(index) {
+            data.technicians.splice(index, 1);
+            saveData();
+            loadTechniciansList();
+        }
+    </script>
+</body>
+</html>
